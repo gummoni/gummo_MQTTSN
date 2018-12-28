@@ -56,6 +56,46 @@ int main(void)
 	else
 		goto exit;
 
+	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	MQTTSNString topicstr;
+
+	/* register topic name */
+	printf("Registering\n");
+	topicstr.cstring = topicname;
+	topicstr.lenstring.len = strlen(topicname);
+	len = MQTTSNSerialize_register(buf, buflen, 0, packetid, &topicstr);
+	rc = transport_sendPacketBuffer(host, port, buf, len);
+
+	if (MQTTSNPacket_read(buf, buflen, transport_getdata) == MQTTSN_REGACK) 	/* wait for regack */
+	{
+		unsigned short submsgid;
+		unsigned char returncode;
+
+		rc = MQTTSNDeserialize_regack(&topicid, &submsgid, &returncode, buf, buflen);
+		if (returncode != 0)
+		{
+			printf("return code %d\n", returncode);
+			goto exit;
+		}
+		else
+			printf("regack topic id %d\n", topicid);
+	}
+	else
+		goto exit;
+
+	/* publish with obtained id */
+	printf("Publishing\n");
+	topic.type = MQTTSN_TOPIC_TYPE_NORMAL;
+	topic.data.id = topicid;
+	++packetid;
+	len = MQTTSNSerialize_publish(buf, buflen, dup, qos, retained, packetid,
+		topic, payload, payloadlen);
+	rc = transport_sendPacketBuffer(host, port, buf, len);
+
+	printf("rc %d from send packet for publish length %d\n", rc, len);
+
+	//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 
 	/* subscribe */
 	printf("Subscribing\n");
